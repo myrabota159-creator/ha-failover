@@ -21,7 +21,7 @@ blueprint:
         text:
     restart_action:
       name: Restart action
-      description: hassio.app_restart on current versions, hassio.addon_restart on older ones.
+      description: hassio.app_restart on current versions, hassio.addon_restart on older ones (the field name is chosen automatically).
       default: hassio.app_restart
       selector:
         text:
@@ -87,10 +87,20 @@ actions:
         value_template: "{{ not is_state(bridge, 'on') }}"
   - repeat:
       sequence:
-        - action: "{{ restart_action }}"
-          data:
-            addon: "{{ addon }}"
-          continue_on_error: true
+        # hassio.app_restart takes the field "app", the older hassio.addon_restart takes "addon".
+        - if:
+            - condition: template
+              value_template: "{{ restart_action.endswith('app_restart') }}"
+          then:
+            - action: "{{ restart_action }}"
+              data:
+                app: "{{ addon }}"
+              continue_on_error: true
+          else:
+            - action: "{{ restart_action }}"
+              data:
+                addon: "{{ addon }}"
+              continue_on_error: true
         - wait_template: "{{ is_state(bridge, 'on') }}"
           timeout:
             minutes: "{{ retry_minutes }}"
