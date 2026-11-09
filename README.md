@@ -15,7 +15,7 @@
 | **HA Failover Primary** | основной HA | отдаёт резерву снимки конфигурации, состояние здоровья, отправляет уведомления |
 | **HA Failover Standby** | резервный HA | копирование, сторож, переключение, возврат, уведомления, проверка готовности и учения |
 
-Настройка сети (коммутатор с SNMPv3, роутер) описана в инструкции в `docs/`.
+Настройка сети, гипервизора и установка по шагам: [руководство](docs/guide.ru.md).
 
 ### Требования
 
@@ -25,7 +25,7 @@
 
 ### Установка
 
-Будет описана, когда дополнения будут готовы. Ссылка на репозиторий для HA: `https://github.com/myrabota159-creator/ha-failover`.
+См. [руководство](docs/guide.ru.md), раздел 5. Ссылка на репозиторий для HA: `https://github.com/myrabota159-creator/ha-failover`.
 
 ## English
 
@@ -38,7 +38,7 @@ Hot standby for Home Assistant OS: a second HA (a virtual machine or another sin
 | **HA Failover Primary** | primary HA | serves configuration snapshots and health to the standby, sends notifications |
 | **HA Failover Standby** | standby HA | replication, watchdog, failover, return, notifications, preflight check and drills |
 
-Network setup (SNMPv3 managed switch, router) is described in `docs/`.
+Network, hypervisor and step-by-step installation: [guide](docs/guide.en.md).
 
 ### Requirements
 
@@ -48,7 +48,7 @@ Network setup (SNMPv3 managed switch, router) is described in `docs/`.
 
 ### Installation
 
-Will be described once the add-ons are ready. Repository URL for HA: `https://github.com/myrabota159-creator/ha-failover`.
+See the [guide](docs/guide.en.md), section 5. Repository URL for HA: `https://github.com/myrabota159-creator/ha-failover`.
 
 ## License
 

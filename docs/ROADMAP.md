@@ -9,5 +9,6 @@
    fix the HTTP port), `preflight` check, `drill` mode, blueprints for Zigbee2MQTT / ZHA self-healing.~~
    Done: commands `setup`, `preflight`, `drill` (standby 0.10.0), blueprints in `blueprints/`.
    Pairing stays manual: values from the primary add-on log go into the standby options.
-4. Documentation: switch (SNMPv3, trusted hosts), router (no static ARP for the primary address),
-   hypervisor / power settings, step-by-step installation.
+4. ~~Documentation: switch (SNMPv3, trusted hosts), router (no static ARP for the primary address),
+   hypervisor / power settings, step-by-step installation.~~ Done: `docs/guide.en.md`, `docs/guide.ru.md`.
+5. Test on a clean installation and on a real primary / standby pair, then remove the "work in progress" notes.
