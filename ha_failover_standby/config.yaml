@@ -1,0 +1,82 @@
+name: HA Failover Standby
+version: "0.8.0"
+slug: ha_failover_standby
+description: Keeps a copy of the primary Home Assistant and takes over its address when the primary fails
+url: https://github.com/myrabota159-creator/ha-failover
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: services
+boot: auto
+init: false
+stdin: true
+hassio_api: true
+homeassistant_api: true
+hassio_role: manager
+map:
+  - share:rw
+  - homeassistant_config:rw
+options:
+  primary_host: ""
+  primary_ssh_port: 22
+  primary_ssh_user: ""
+  primary_ha_port: 8123
+  primary_extra_ports:
+    - 1883
+  interval_minutes: 15
+  keep: 96
+  addons:
+    - core_mosquitto
+  network_interface: ""
+  primary_prefix: 0
+  gateway: ""
+  dns: []
+  required_hosts: []
+  switch_host: ""
+  primary_switch_port: 0
+  test_switch_port: 0
+  snmp_user: ""
+  snmp_auth_protocol: SHA
+  snmp_auth_pass: ""
+  snmp_priv_protocol: AES
+  snmp_priv_pass: ""
+  watchdog_mode: "off"
+  watchdog_fail_seconds: 180
+  ha_check_mode: observe
+  ha_fail_seconds: 480
+  notify_targets: []
+  language: en
+schema:
+  primary_host: str
+  primary_ssh_port: port
+  primary_ssh_user: str
+  primary_ha_port: port
+  primary_extra_ports:
+    - port
+  interval_minutes: int(5,1440)
+  keep: int(4,2000)
+  addons:
+    - str
+  network_interface: str
+  primary_prefix: int(0,32)
+  gateway: str
+  dns:
+    - str
+  required_hosts:
+    - str
+  switch_host: str
+  primary_switch_port: int(0,4096)
+  test_switch_port: int(0,4096)
+  snmp_user: str
+  snmp_auth_protocol: list(MD5|SHA|SHA-224|SHA-256|SHA-384|SHA-512)
+  snmp_auth_pass: password
+  snmp_priv_protocol: list(DES|AES|AES-192|AES-256)
+  snmp_priv_pass: password
+  watchdog_mode: list(off|observe|armed)
+  watchdog_fail_seconds: int(60,900)
+  ha_check_mode: list(off|observe|armed)
+  ha_fail_seconds: int(240,3600)
+  notify_targets:
+    - str
+  language: list(en|ru)
