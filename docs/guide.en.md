@@ -113,7 +113,7 @@ every one of them has a `-dry` variant or is preceded by a read-only check.
 | Situation | What to do |
 |---|---|
 | Planned work on the primary | `watchdog_mode: observe` on the standby first, back to `armed` afterwards. |
-| Manual failover | Switch the primary off, then `dry-run`, `failover I-UNDERSTAND`. A manual failover does not touch the switch: keep the primary off, or keep `watchdog_mode` at `observe`/`armed`, whose guard disables the primary port while the standby holds the address. |
+| Manual failover | Switch the primary off, then `dry-run`, `failover I-UNDERSTAND`. The failover disables the primary port and confirms it first; without a configured switch it warns and leaves the port alone, then keep the primary off. |
 | Back to the primary | Power the primary on (its port is still disabled), then `return-to-pi-dry`, `return-to-pi I-UNDERSTAND`. On success: push from the primary, replication resumes. |
 | Return failed | The standby is primary again with its own latest state; check the primary, try again later. |
 | Manual undo | `standby I-UNDERSTAND`, then `pi-port-up I-UNDERSTAND`, check the primary, `unblock I-UNDERSTAND`. |

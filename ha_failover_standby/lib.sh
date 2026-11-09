@@ -74,7 +74,9 @@ msg(){
     test_title) t='HA: проверка уведомлений' ;;
     test_body) t='Тестовое сообщение от резервного HA' ;;
     failover_title) t='HA: переключение на резерв' ;;
-    failover_body) t='%s %s. HA запущен на резервном узле с тем же адресом. Порт %s на коммутаторе выключен. Конфигурация из снимка основного от %s. Возврат на основной только вручную.' ;;
+    failover_body) t='%s %s. HA запущен на резервном узле с тем же адресом. %s Конфигурация из снимка основного от %s. Возврат на основной только вручную.' ;;
+    port_off) t='Порт %s на коммутаторе выключен.' ;;
+    port_untouched) t='Коммутатор не настроен, порт основного НЕ выключен: не включайте основной, пока работает резерв.' ;;
     reason_silent) t='Основной HA (%s) не отвечал %s с' ;;
     reason_ha_dead) t='Основной узел в сети, но HA на нём не отвечал %s с' ;;
     reason_default) t='Основной HA (%s) не отвечал' ;;
@@ -91,7 +93,9 @@ msg(){
     test_title) t='HA: notification test' ;;
     test_body) t='Test message from the standby HA' ;;
     failover_title) t='HA: failover to standby' ;;
-    failover_body) t='%s %s. HA is running on the standby node with the same address. Switch port %s is disabled. Configuration from the primary snapshot of %s. Return to the primary is manual only.' ;;
+    failover_body) t='%s %s. HA is running on the standby node with the same address. %s Configuration from the primary snapshot of %s. Return to the primary is manual only.' ;;
+    port_off) t='Switch port %s is disabled.' ;;
+    port_untouched) t='No switch configured, the primary port is NOT disabled: keep the primary off while the standby runs.' ;;
     reason_silent) t='Primary HA (%s) silent for %s s' ;;
     reason_ha_dead) t='Primary node is on the network, but its HA did not answer for %s s' ;;
     reason_default) t='Primary HA (%s) did not answer' ;;

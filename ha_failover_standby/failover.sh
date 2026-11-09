@@ -83,6 +83,20 @@ boot_watchdog_from(){ # $1 = function that prints add-on info JSON for slug $2
 info_from_work(){ cat "$W/addons/$1.json"; }
 info_from_latest(){ tar -xOf "$(readlink -f "$S/latest.tar")" "./addons/$1.json"; }
 
+switch_ready(){ [ -n "$SW" ] && [ -n "$U" ] && [ -n "$A" ] && [ -n "$X" ] && [ "${PIP:-0}" != 0 ]; }
+isolate_primary(){ # disable the primary port and confirm it; sets PORT_MSG. Returns 1 if it cannot be confirmed.
+  local a o i
+  if ! switch_ready; then say "WARNING: switch not configured, primary port NOT disabled"; PORT_MSG=$(msg port_untouched); return 0; fi
+  a=$(port_admin "$PIP"); o=$(port_oper "$PIP")
+  if ! is_down "$a"; then say "disable primary port $PIP: $(port_set "$PIP" 2 | tr '\n' ' ')"; fi
+  for i in 1 2 3 4 5; do
+    a=$(port_admin "$PIP"); o=$(port_oper "$PIP"); say "port $PIP: admin=$a oper=$o"
+    if is_down "$a" && is_down "$o"; then PORT_MSG=$(msg port_off "$PIP"); return 0; fi
+    sleep 2
+  done
+  return 1
+}
+
 take_address(){ # $1 cidr $2 gw $3 dns
   say "network $IFACE -> static $1: $(api POST "network/interface/$IFACE/update" "$(static_body "$1" "$2" "$3")" | jq -c .)"
 }
@@ -97,7 +111,9 @@ dry-run)
   prepare; addon_report; mqtt_report; custom_report; net_report
   say "free space: $(df -h /homeassistant | awk 'NR==2{print $4}') on /homeassistant"
   say "BLOCKED now: $( [ -e "$R/BLOCKED" ] && echo yes || echo no )"
-  say "plan: BLOCKED -> stop core+add-ons -> save /homeassistant to $R/standby-<ts>.tgz -> wipe and extract snapshot"
+  if switch_ready; then say "switch: primary port $PIP admin=$(port_admin "$PIP") oper=$(port_oper "$PIP") (will be disabled and confirmed first)"
+  else say "switch: NOT configured, the primary port will not be disabled"; fi
+  say "plan: disable + confirm primary port -> BLOCKED -> stop core+add-ons -> save /homeassistant to $R/standby-<ts>.tgz -> wipe and extract snapshot"
   say "      -> add-on options from primary -> start ${BROKER:-(no broker)} -> patch mqtt entry with local broker credentials"
   say "      -> static address of the primary -> start ${OTHERS:-(no other add-ons)}, boot/watchdog as on primary -> start core"
   rm -rf "$W"; say "=== DRY RUN done ===" ;;
@@ -107,6 +123,8 @@ failover)
   say "=== FAILOVER started $(date -u +%FT%TZ) ==="
   check_pi || fail "primary is alive, refusing"
   NET=$(takeover_net) || fail "$NET"
+  isolate_primary || fail "primary port $PIP not confirmed down, nothing changed"
+  check_pi || fail "primary answers after its port was disabled (another path?), nothing else changed; port $PIP stays down, enable it with pi-port-up"
   echo "failover $(date -u +%FT%TZ)" > "$R/BLOCKED"
   prepare; addon_report
   ts=$(date -u +%Y%m%dT%H%M%SZ)
@@ -136,7 +154,7 @@ failover)
   rm -rf "$W"
   say "=== FAILOVER done $(date -u +%FT%TZ); standby copy $R/standby-$ts.tgz; replication BLOCKED ==="
   snap_local=$(date -d "$(cat "$R/.last_created" 2>/dev/null)" '+%d.%m %H:%M' 2>/dev/null || echo "?")
-  notify_bg "$(msg failover_title)" "$(msg failover_body "$(local_time)" "${REASON:-$(msg reason_default "$PI")}" "$PIP" "$snap_local")" 900 ;;
+  notify_bg "$(msg failover_title)" "$(msg failover_body "$(local_time)" "${REASON:-$(msg reason_default "$PI")}" "$PORT_MSG" "$snap_local")" 900 ;;
 resume-primary)
   # Return to the primary failed: take the primary role again with THIS node's own latest state
   # (primary-<ts>.tgz saved by standby), not with the older snapshot. Called by return.sh after the port was disabled.
