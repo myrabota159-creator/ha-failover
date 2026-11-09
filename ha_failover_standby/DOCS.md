@@ -7,7 +7,7 @@
 | Option | Default | Meaning |
 |---|---|---|
 | `primary_host` | — | Address of the primary HA. The standby takes it over on failover. |
-| `primary_ssh_port`, `primary_ssh_user` | `22`, — | SSH access to the primary (forced command, see `primary/README.md`). |
+| `primary_api_port`, `primary_pin`, `primary_token` | `8765`, —, — | API of the **HA Failover Primary** add-on: copy the values from its log. The pin fixes the server key, so nobody else can pretend to be the primary. |
 | `primary_ha_port` | `8123` | HA web port on the primary. |
 | `primary_extra_ports` | `[1883]` | More TCP ports that prove the primary is alive. |
 | `interval_minutes`, `keep` | `15`, `96` | Snapshot interval and how many snapshots to keep. |

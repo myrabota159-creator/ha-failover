@@ -1,5 +1,5 @@
 name: HA Failover Standby
-version: "0.8.0"
+version: "0.9.0"
 slug: ha_failover_standby
 description: Keeps a copy of the primary Home Assistant and takes over its address when the primary fails
 url: https://github.com/myrabota159-creator/ha-failover
@@ -19,8 +19,9 @@ map:
   - homeassistant_config:rw
 options:
   primary_host: ""
-  primary_ssh_port: 22
-  primary_ssh_user: ""
+  primary_api_port: 8765
+  primary_pin: ""
+  primary_token: ""
   primary_ha_port: 8123
   primary_extra_ports:
     - 1883
@@ -49,8 +50,9 @@ options:
   language: en
 schema:
   primary_host: str
-  primary_ssh_port: port
-  primary_ssh_user: str
+  primary_api_port: port
+  primary_pin: str
+  primary_token: password
   primary_ha_port: port
   primary_extra_ports:
     - port

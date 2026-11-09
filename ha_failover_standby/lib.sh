@@ -1,10 +1,10 @@
 #!/bin/bash
 # Shared helpers for all standby scripts: options, Supervisor API, SNMP, network auto-detection, messages.
 # Sourced, never executed. Nothing here changes state.
-O=/data/options.json; R=/share/replica; S=$R/snapshots; K=/data/id_ed25519
+O=/data/options.json; R=/share/replica; S=$R/snapshots; AUTH_HDR=/data/auth.hdr
 opt(){ jq -r "$1 // empty" "$O"; }
 
-PI=$(opt .primary_host); PORT=$(opt .primary_ssh_port); USER_=$(opt .primary_ssh_user)
+PI=$(opt .primary_host); PORT=$(opt .primary_api_port); PORT=${PORT:-8765}; PIN=$(opt .primary_pin); PIN=${PIN#sha256//}
 HA_PORT=$(opt .primary_ha_port); HA_PORT=${HA_PORT:-8123}
 mapfile -t PI_EXTRA_PORTS < <(jq -r '.primary_extra_ports[]?' "$O")
 SW=$(opt .switch_host); PIP=$(opt .primary_switch_port); TP=$(opt .test_switch_port)
@@ -50,9 +50,14 @@ gateway(){ local g; g=$(opt .gateway); [ -n "$g" ] && echo "$g" || iface_ipv4 | 
 
 # ---------- primary probes ----------
 pi_alive_ports(){ echo "$HA_PORT $PORT ${PI_EXTRA_PORTS[*]}"; }
-pi_ssh(){ # $1 request, $2 timeout
-  timeout "${2:-40}" ssh -n -i "$K" -p "$PORT" -o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=15 \
-    -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/data/known_hosts "$USER_@$PI" "$1"; }
+# HTTPS API of the HA Failover Primary add-on. The server key is pinned (self-signed certificate, so -k,
+# but curl still refuses any other key); the token is read from a 0600 file, never put on the command line.
+# pi_api <GET|POST> <path> [timeout] [auth header file]
+pi_api(){
+  [ -n "$PI" ] && [ -n "$PIN" ] || { echo "primary_host / primary_pin not set" >&2; return 1; }
+  curl -sS --fail -k --pinnedpubkey "sha256//$PIN" --connect-timeout 8 -m "${3:-40}" -X "$1" \
+    -H "@${4:-$AUTH_HDR}" "https://$PI:$PORT/v1/$2"; }
+pi_health(){ pi_api GET health "${1:-40}"; }
 
 # ---------- switch ----------
 port_admin(){ snmpget "${SNMP[@]}" "$SW" "1.3.6.1.2.1.2.2.1.7.$1" 2>/dev/null; }

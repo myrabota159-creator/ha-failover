@@ -75,7 +75,7 @@ while true; do
     if [ "$HA_MODE" = off ] || ha_ok; then cur="pi-ok"; hadead=0; diag_at=-999; state ok "primary and its HA answer" 0
     else
       hadead=$((hadead+gap)); cur="ha-down"; state ha-down "primary answers, HA does not serve /manifest.json" "$hadead"
-      if [ $((hadead - diag_at)) -ge 60 ]; then diag_at=$hadead; log "HA on primary not answering for ${hadead}s; health: $(pi_ssh health 30 2>/dev/null | head -c 300)"; fi
+      if [ $((hadead - diag_at)) -ge 60 ]; then diag_at=$hadead; log "HA on primary not answering for ${hadead}s; health: $(pi_health 30 2>/dev/null | head -c 300)"; fi
     fi
   elif bad=$(vm_net_ok); then
     hadead=0; silent=$((silent+gap)); cur="pi-silent"; state pi-silent "primary silent, own network fine" "$silent"

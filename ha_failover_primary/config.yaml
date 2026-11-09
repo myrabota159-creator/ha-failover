@@ -1,0 +1,37 @@
+name: HA Failover Primary
+version: "0.1.0"
+slug: ha_failover_primary
+description: Serves configuration snapshots and health of this Home Assistant to the HA Failover Standby node
+url: https://github.com/myrabota159-creator/ha-failover
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: services
+boot: auto
+init: false
+host_network: true
+hassio_api: true
+homeassistant_api: true
+hassio_role: manager
+map:
+  - homeassistant_config:rw
+options:
+  port: 8765
+  allowed_sources: []
+  token: ""
+  show_token: false
+  checks: []
+  notify_targets: []
+  language: en
+schema:
+  port: port
+  allowed_sources:
+    - str
+  token: password
+  show_token: bool
+  checks:
+    - str
+  notify_targets:
+    - str
+  language: list(en|ru)

@@ -1,29 +1,17 @@
 #!/bin/bash
-# Runs on the PRIMARY Home Assistant as the SSH forced command for the standby's key, e.g. in authorized_keys:
-#   command="sudo /bin/bash /homeassistant/.replica/export.sh \"${SSH_ORIGINAL_COMMAND:-export}\"",restrict ssh-ed25519 AAAA... ha-failover-standby
-# Only three exact requests are accepted (the argument is client-controlled and never used as code):
-#   export            -> read-only tar stream: config.tgz, addons/*.json, core.json, db/*.db, created_utc
-#   health            -> read-only JSON: {"core":..., "checks":{...}, "ready":true|false}
-#   notify-return-ok  -> push with a FIXED text to the targets from export.conf ("HA is back on the primary")
-# Settings: export.conf next to this script (see export.conf.example). It is parsed, never sourced.
-# Temporary: step 2 of the roadmap replaces this with the "HA Failover Primary" add-on (HTTP instead of SSH).
+# Read-only data for the standby, called by server.py (never with client-supplied code):
+#   export            -> tar stream: config.tgz, addons/*.json, core.json, db/*.db, created_utc
+#   health            -> JSON: {"core":..., "checks":{...}, "ready":true|false}
+#   notify-return-ok  -> push with a FIXED text to option notify_targets ("HA is back on the primary")
 set -euo pipefail
 umask 077
-HERE=$(cd "$(dirname "$0")" && pwd); CONF=$HERE/export.conf
-T=$(cat /run/s6/container_environment/SUPERVISOR_TOKEN)
-REQ="${1:-export}"
+O=/data/options.json
+T=$SUPERVISOR_TOKEN
+REQ="${1:-}"
 api(){ curl -s -m 20 -H "Authorization: Bearer $T" -H "Content-Type: application/json" "$@"; }
-
-CHECKS=(); NOTIFY=(); LANGUAGE=en
-if [ -r "$CONF" ]; then
-  while read -r key val _; do
-    case "$key" in
-      check)    [[ "$val" =~ ^zha$|^[a-z_]+\.[a-z0-9_]+=[A-Za-z0-9_.-]+$ ]] && CHECKS+=("$val") ;;
-      notify)   [[ "$val" =~ ^[a-z0-9_]+$ ]] && NOTIFY+=("$val") ;;
-      language) [[ "$val" =~ ^(en|ru)$ ]] && LANGUAGE=$val ;;
-    esac
-  done < <(grep -vE '^\s*(#|$)' "$CONF")
-fi
+mapfile -t CHECKS < <(jq -r '.checks[]?' "$O")
+mapfile -t NOTIFY < <(jq -r '.notify_targets[]?' "$O")
+LANGUAGE=$(jq -r '.language // "en"' "$O")
 
 case "$REQ" in
 health)
@@ -36,9 +24,11 @@ health)
       got=$(api -X POST -d '{"template":"{% set e = integration_entities(\"zha\") %}{{ config_entry_attr(config_entry_id(e | first), \"state\") if e else \"none\" }}"}' \
             http://supervisor/core/api/template 2>/dev/null || echo "?")
       got=${got,,}; got=${got#configentrystate.}
+    elif [[ "$c" =~ ^[a-z_]+\.[a-z0-9_]+=[A-Za-z0-9_.-]+$ ]]; then
+      want=${c#*=}
+      got=$(api "http://supervisor/core/api/states/${c%%=*}" | jq -r '.state // "?"' 2>/dev/null || echo "?")
     else
-      want=${c#*=}; ent=${c%%=*}
-      got=$(api "http://supervisor/core/api/states/$ent" | jq -r '.state // "?"' 2>/dev/null || echo "?")
+      want=valid; got=invalid-check
     fi
     [ "$got" = "$want" ] || ready=false
     res=$(jq -c --arg k "${c%%=*}" --arg v "$got" '. + {($k): $v}' <<<"$res")
@@ -52,6 +42,7 @@ notify-return-ok)
     body='{"title":"HA: back on the primary","message":"Return from the standby node is done, readiness checks passed. The standby is idle again, replication resumed."}'
   fi
   for t in "${NOTIFY[@]}"; do
+    [[ "$t" =~ ^[a-z0-9_]+$ ]] || { echo "$t: invalid name"; continue; }
     echo "$t: HTTP $(api -o /dev/null -w '%{http_code}' -X POST --data "$body" "http://supervisor/core/api/services/notify/$t")"
   done
   exit 0 ;;

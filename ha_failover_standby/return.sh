@@ -27,8 +27,10 @@ rollback(){ # $1 reason
 
 # ---------- checks ----------
 if [ "$MODE" = return-to-pi-health ]; then
-  say "health: $(pi_ssh health 2>/dev/null)"
-  say "unknown request is refused: $(pi_ssh 'id; echo SHOULD-NOT-RUN' 2>&1 | tr '\n' ' ' | head -c 200)"
+  say "health: $(pi_health 2>&1)"
+  ( umask 077; printf 'Authorization: Bearer wrong-token\n' > /tmp/bad.hdr )
+  say "wrong token is refused: $(pi_api GET ping 20 /tmp/bad.hdr 2>&1 | tr '\n' ' ' | head -c 200)"
+  rm -f /tmp/bad.hdr
   exit 0
 fi
 blocked=$( [ -e "$R/BLOCKED" ] && head -c 100 "$R/BLOCKED" || echo no )
@@ -64,7 +66,7 @@ is_up "$a" || rollback "$(msg reason_port_not_up)"
 
 t0=$(date +%s); h=""
 while :; do
-  h=$(pi_ssh health 2>/dev/null)
+  h=$(pi_health 2>/dev/null)
   [ "$(jq -r .core <<<"$h" 2>/dev/null)" = RUNNING ] && break
   [ $(( $(date +%s) - t0 )) -ge $CORE_WAIT ] && rollback "$(msg reason_core_timeout $((CORE_WAIT/60)))"
   sleep 10
@@ -72,12 +74,12 @@ done
 say "primary core RUNNING after $(( $(date +%s) - t0 ))s: $h"
 t1=$(date +%s)
 while :; do
-  h=$(pi_ssh health 2>/dev/null)
+  h=$(pi_health 2>/dev/null)
   [ "$(jq -r .ready <<<"$h" 2>/dev/null)" = true ] && break
   [ $(( $(date +%s) - t1 )) -ge $READY_WAIT ] && rollback "$(msg reason_not_ready $((READY_WAIT/60))) ($h)"
   sleep 15
 done
 say "primary healthy after $(( $(date +%s) - t0 ))s: $h"
 rm -f "$R/BLOCKED"; say "BLOCKED removed, replication resumes on the next cycle"
-say "push via primary: $(pi_ssh notify-return-ok 2>/dev/null | tr '\n' ' ')"
+say "push via primary: $(pi_api POST notify-return-ok 60 2>&1 | tr '\n' ' ')"
 say "=== RETURN TO PRIMARY done $(date -u +%FT%TZ) ==="
