@@ -9,7 +9,7 @@
 - The **primary** HA runs as usual. The **HA Failover Primary** add-on on it serves configuration snapshots
   and a health report over HTTPS to the standby only.
 - The **standby** HA (a VM or a second board) runs an empty Home Assistant. The **HA Failover Standby** add-on
-  pulls a snapshot every `interval_minutes` into `/share/replica/snapshots`.
+  pulls a snapshot every `interval_minutes` into `/share/ha_failover/snapshots`.
 - The standby's watchdog checks the primary every 10 s. When the primary is silent for `watchdog_fail_seconds`
   (or its HA does not answer for `ha_fail_seconds`, if that check is armed), and the standby itself sees
   the gateway, the switch and every `required_hosts` entry, it:
@@ -34,7 +34,7 @@
   the empty standby HA does not connect to them.
 - Not replicated: the recorder database (`home-assistant_v2.db`), so history starts fresh after failover;
   Python packages of custom integrations (they need internet on the first start on the standby).
-- Changes made on the standby while it is primary are kept in `/share/replica/primary-<time>.tgz` on the
+- Changes made on the standby while it is primary are kept in `/share/ha_failover/primary-<time>.tgz` on the
   standby, but **are not copied back** to the primary on return. Copy them by hand if needed.
 
 ## 3. Network
@@ -118,7 +118,7 @@ every one of them has a `-dry` variant or is preceded by a read-only check.
 | Return failed | The standby is primary again with its own latest state; check the primary, try again later. |
 | Manual undo | `standby I-UNDERSTAND`, then `pi-port-up I-UNDERSTAND`, check the primary, `unblock I-UNDERSTAND`. |
 
-State files on the standby: `/share/replica/status.json` (replication), `watchdog.json`, `preflight.json`,
+State files on the standby: `/share/ha_failover/status.json` (replication), `watchdog.json`, `preflight.json`,
 `notify.log`.
 
 ## 7. Troubleshooting

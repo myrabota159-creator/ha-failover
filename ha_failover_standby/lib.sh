@@ -1,7 +1,7 @@
 #!/bin/bash
 # Shared helpers for all standby scripts: options, Supervisor API, SNMP, network auto-detection, messages.
 # Sourced, never executed. Nothing here changes state.
-O=/data/options.json; R=/share/replica; S=$R/snapshots; AUTH_HDR=/data/auth.hdr
+O=/data/options.json; R=/share/ha_failover; S=$R/snapshots; AUTH_HDR=/data/auth.hdr
 opt(){ jq -r "$1 // empty" "$O"; }
 
 PI=$(opt .primary_host); PORT=$(opt .primary_api_port); PORT=${PORT:-8765}; PIN=$(opt .primary_pin); PIN=${PIN#sha256//}
