@@ -19,7 +19,7 @@
 | `primary_switch_port` | — | Switch port (ifIndex) of the primary. |
 | `test_switch_port` | — | A free port for `port-test`. |
 | `snmp_user`, `snmp_auth_protocol`, `snmp_auth_pass`, `snmp_priv_protocol`, `snmp_priv_pass` | —, `SHA`, —, `AES`, — | SNMPv3 `authPriv` user with write access to the primary port only. Older switches may need `DES`. |
-| `watchdog_mode` | `off` | `off`, `observe` (log only) or `armed`. |
+| `watchdog_mode` | `off` | `off`, `observe` (log only) or `armed`. Can be changed live with the `set-mode` command (the file `watchdog_mode` overrides this option until cleared). |
 | `watchdog_fail_seconds` | `180` | How long the primary must be silent. |
 | `ha_check_mode`, `ha_fail_seconds` | `observe`, `480` | Second level: the node answers, but HA does not. |
 | `notify_targets` | `[]` | Notify services (without `notify.`) for failover pushes. |
@@ -34,6 +34,7 @@ Send with the action `hassio.addon_stdin` (`addon: <slug>`, `input: "<command>"`
 - `return-to-pi-dry`, `return-to-pi-health`, `return-to-pi I-UNDERSTAND`
 - `snmp-test`, `port-test I-UNDERSTAND`, `pi-port-up I-UNDERSTAND`
 - `notify-test`
+- `set-mode off|observe|armed` (or `set-mode default` to clear): change the watchdog mode live, without restarting the add-on. Writes `/share/ha_failover/watchdog_mode`; the effective mode is reflected in `watchdog.json`.
 - `setup-dry`, `setup I-UNDERSTAND`: add missing add-on repositories, install the managed add-ons, set them to `boot: manual` and stop them
 - `preflight`: read-only readiness check, result also in `/share/ha_failover/preflight.json`
 - `drill`: read-only restore drill of the latest snapshot in a scratch folder

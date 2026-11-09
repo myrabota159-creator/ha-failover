@@ -1,6 +1,8 @@
 #!/bin/bash
 # Watchdog: detects that the primary is gone and, in "armed" mode, isolates it (SNMP: port down) and runs failover.
 # Modes (option watchdog_mode): off | observe (log only) | armed.
+# The effective mode can be changed live (no restart) via the file $R/watchdog_mode, written by the
+# "set-mode off|observe|armed" stdin command; the add-on option is the fallback when the file is absent.
 # Level 1: primary counts as DOWN only if ping and all probe ports (HA, SSH, extra) are silent (watchdog_fail_seconds).
 # Level 2: primary answers, but its HA does not serve /manifest.json (ha_fail_seconds, mode ha_check_mode).
 # Both levels act only if this node itself sees the gateway, the switch (SNMP) and every required_hosts entry,
@@ -8,7 +10,9 @@
 set -uo pipefail
 . /lib.sh
 ST=$R/watchdog.json
-MODE=$(opt .watchdog_mode); MODE=${MODE:-off}; LIMIT=$(opt .watchdog_fail_seconds)
+# Effective mode: the live override file if it holds a valid mode, otherwise the add-on option.
+current_mode(){ local m; if [ -r "$R/watchdog_mode" ]; then m=$(tr -dc 'a-z' < "$R/watchdog_mode"); case "$m" in off|observe|armed) echo "$m"; return;; esac; fi; m=$(opt .watchdog_mode); echo "${m:-off}"; }
+MODE=$(current_mode); LIMIT=$(opt .watchdog_fail_seconds)
 HA_MODE=$(opt .ha_check_mode); HA_MODE=${HA_MODE:-observe}; HA_LIMIT=$(opt .ha_fail_seconds)
 mapfile -t REQUIRED < <(jq -r '.required_hosts[]?' "$O")   # "host" (ping) or "host:port" (ping or TCP)
 STEP=10; GRACE=300
@@ -47,9 +51,10 @@ isolate_and_failover(){ # $1 = human reason (goes into the push); returns after 
 }
 
 log "start: mode=$MODE, limit ${LIMIT}s; HA check $HA_MODE, limit ${HA_LIMIT}s; grace ${GRACE}s, primary $PI on switch $SW port $PIP"
-[ "$MODE" = off ] && { state off "watchdog disabled" 0; exec sleep infinity; }
 for v in PI SW U A X; do [ -n "${!v}" ] || { log "option for $v not set, watchdog idle"; state error "incomplete options" 0; exec sleep infinity; }; done
 [ "${PIP:-0}" != 0 ] || { log "primary_switch_port not set, watchdog idle"; state error "incomplete options" 0; exec sleep infinity; }
+MODE=$(current_mode)
+if [ "$MODE" = off ]; then state off "watchdog disabled" 0; else state starting "grace ${GRACE}s after start" 0; fi
 sleep "$GRACE"
 GW=$(gateway); log "gateway for own network check: ${GW:-none}, required hosts: ${REQUIRED[*]:-none}"
 silent=0; hadead=0; diag_at=-999; last=$(date +%s); prev=""
@@ -58,6 +63,7 @@ while true; do
   if [ "$gap" -gt $((STEP*6)) ] || [ "$gap" -lt 0 ]; then
     log "clock jump or stall (${gap}s between checks), counters reset"; silent=0; hadead=0
   fi
+  MODE=$(current_mode)
   if [ -e "$R/BLOCKED" ]; then cur="blocked"; silent=0; hadead=0; state blocked "BLOCKED present, watchdog idle" 0
     # While this node holds the primary address, keep the primary port disabled
     # (a switch reboot re-enables it: an SNMP set is usually not saved to the startup config).
@@ -71,6 +77,7 @@ while true; do
       elif [ -z "$a" ]; then cur="blocked-noswitch"
       else cur="blocked-guarding"; fi
     fi
+  elif [ "$MODE" = off ]; then cur="off"; silent=0; hadead=0; state off "watchdog disabled" 0
   elif pi_alive; then silent=0
     if [ "$HA_MODE" = off ] || ha_ok; then cur="pi-ok"; hadead=0; diag_at=-999; state ok "primary and its HA answer" 0
     else

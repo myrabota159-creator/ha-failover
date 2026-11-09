@@ -57,6 +57,14 @@ while true; do
       setup*|preflight|drill) /setup.sh $line 2>&1 | while IFS= read -r l; do log "[setup] $l"; done ;;
       return-to-pi*) /return.sh $line 2>&1 | while IFS= read -r l; do log "[return] $l"; done ;;
       notify-test) /notify.sh "$(msg test_title)" "$(msg test_body)" 30 2>&1 | while IFS= read -r l; do log "[notify] $l"; done ;;
+      set-mode*)
+        m=$(echo "${line#set-mode}" | tr -dc 'a-z')
+        case "$m" in
+          off|observe|armed) printf '%s\n' "$m" > "$R/watchdog_mode.tmp" && mv "$R/watchdog_mode.tmp" "$R/watchdog_mode"
+            log "[mode] watchdog_mode override -> $m (effective within ~10s)" ;;
+          default) rm -f "$R/watchdog_mode"; log "[mode] watchdog_mode override cleared, using add-on option" ;;
+          *) log "[mode] usage: set-mode off|observe|armed|default" ;;
+        esac ;;
       *) /failover.sh $line 2>&1 | while IFS= read -r l; do log "[failover] $l"; done ;;
     esac
   done
