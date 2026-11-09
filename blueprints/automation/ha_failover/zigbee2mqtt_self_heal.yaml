@@ -1,0 +1,124 @@
+blueprint:
+  name: Zigbee2MQTT self-healing restart
+  description: >-
+    Restarts the Zigbee2MQTT add-on when its bridge stays disconnected (for example after a network
+    outage, when the add-on ends in an error state and its own watchdog does not help), retries a limited
+    number of times and notifies. Also checks a few minutes after Home Assistant starts.
+    Turn this automation off before a planned stop of Zigbee2MQTT.
+  domain: automation
+  source_url: https://github.com/myrabota159-creator/ha-failover/blob/main/blueprints/automation/ha_failover/zigbee2mqtt_self_heal.yaml
+  input:
+    bridge:
+      name: Bridge connection sensor
+      description: Binary sensor of the Zigbee2MQTT bridge connection state (on = connected).
+      selector:
+        entity:
+          domain: binary_sensor
+    addon:
+      name: Add-on slug
+      description: Slug of the Zigbee2MQTT add-on, e.g. 1a2b3c4d_zigbee2mqtt (Settings > Add-ons > the add-on, last part of the URL).
+      selector:
+        text:
+    restart_action:
+      name: Restart action
+      description: hassio.app_restart on current versions, hassio.addon_restart on older ones.
+      default: hassio.app_restart
+      selector:
+        text:
+    down_minutes:
+      name: Disconnected for (minutes)
+      default: 2
+      selector:
+        number: {min: 1, max: 30, unit_of_measurement: min}
+    retry_minutes:
+      name: Wait after each restart (minutes)
+      default: 5
+      selector:
+        number: {min: 1, max: 30, unit_of_measurement: min}
+    max_attempts:
+      name: Maximum restarts
+      default: 12
+      selector:
+        number: {min: 1, max: 50}
+    startup_minutes:
+      name: Check after Home Assistant start (minutes)
+      default: 5
+      selector:
+        number: {min: 1, max: 30, unit_of_measurement: min}
+    notify_targets:
+      name: Notify services
+      description: Notify services without "notify.", one per line (e.g. mobile_app_my_phone). Empty = persistent notification only.
+      default: ""
+      selector:
+        text:
+          multiline: true
+
+mode: single
+max_exceeded: silent
+
+variables:
+  bridge: !input bridge
+  addon: !input addon
+  restart_action: !input restart_action
+  retry_minutes: !input retry_minutes
+  max_attempts: !input max_attempts
+  targets_raw: !input notify_targets
+  targets: "{{ targets_raw.split('\n') | map('trim') | reject('eq', '') | list }}"
+
+triggers:
+  - trigger: state
+    entity_id: !input bridge
+    to: "off"
+    for:
+      minutes: !input down_minutes
+    id: down
+  - trigger: homeassistant
+    event: start
+    id: start
+
+actions:
+  - if:
+      - condition: trigger
+        id: start
+    then:
+      - delay:
+          minutes: !input startup_minutes
+      - condition: template
+        value_template: "{{ not is_state(bridge, 'on') }}"
+  - repeat:
+      sequence:
+        - action: "{{ restart_action }}"
+          data:
+            addon: "{{ addon }}"
+          continue_on_error: true
+        - wait_template: "{{ is_state(bridge, 'on') }}"
+          timeout:
+            minutes: "{{ retry_minutes }}"
+          continue_on_timeout: true
+        - variables:
+            ok: "{{ is_state(bridge, 'on') }}"
+        - variables:
+            text: >-
+              {% if ok %}Zigbee2MQTT restarted, bridge connected again (attempt {{ repeat.index }}).
+              {% elif repeat.index >= max_attempts %}Zigbee2MQTT bridge still disconnected after {{ repeat.index }} restarts, giving up.
+              {% else %}Zigbee2MQTT bridge still disconnected after restart {{ repeat.index }}, trying again.{% endif %}
+        - if:
+            - condition: template
+              value_template: "{{ ok or repeat.index == 1 or repeat.index >= max_attempts }}"
+          then:
+            - action: persistent_notification.create
+              data:
+                title: Zigbee2MQTT
+                message: "{{ text }}"
+                notification_id: zigbee2mqtt_self_heal
+            - repeat:
+                for_each: "{{ targets }}"
+                sequence:
+                  - action: "notify.{{ repeat.item }}"
+                    data:
+                      title: Zigbee2MQTT
+                      message: "{{ text }}"
+                    continue_on_error: true
+      until:
+        - condition: template
+          value_template: "{{ is_state(bridge, 'on') or repeat.index >= max_attempts }}"

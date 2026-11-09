@@ -34,5 +34,8 @@ Send with the action `hassio.addon_stdin` (`addon: <slug>`, `input: "<command>"`
 - `return-to-pi-dry`, `return-to-pi-health`, `return-to-pi I-UNDERSTAND`
 - `snmp-test`, `port-test I-UNDERSTAND`, `pi-port-up I-UNDERSTAND`
 - `notify-test`
+- `setup-dry`, `setup I-UNDERSTAND`: add missing add-on repositories, install the managed add-ons, set them to `boot: manual` and stop them
+- `preflight`: read-only readiness check, result also in `/share/replica/preflight.json`
+- `drill`: read-only restore drill of the latest snapshot in a scratch folder
 
 State files: `/share/replica/status.json`, `/share/replica/watchdog.json`, `/share/replica/notify.log`.

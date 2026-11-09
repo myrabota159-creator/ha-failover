@@ -1,6 +1,6 @@
 #!/bin/bash
 # Read-only data for the standby, called by server.py (never with client-supplied code):
-#   export            -> tar stream: config.tgz, addons/*.json, core.json, db/*.db, created_utc
+#   export            -> tar stream: config.tgz, addons/*.json, core.json, repositories.json, db/*.db, created_utc
 #   health            -> JSON: {"core":..., "checks":{...}, "ready":true|false}
 #   notify-return-ok  -> push with a FIXED text to option notify_targets ("HA is back on the primary")
 set -euo pipefail
@@ -56,6 +56,8 @@ for s in $(api http://supervisor/addons | jq -r '.data.addons[]?.slug'); do
   curl -sf -m 30 -H "Authorization: Bearer $T" "http://supervisor/addons/$s/info" > "$W/addons/$s.json"
 done
 curl -sf -m 30 -H "Authorization: Bearer $T" http://supervisor/core/info > "$W/core.json"
+# add-on repositories, so the standby setup can add a missing one before installing an add-on
+api http://supervisor/store/repositories | jq -c '[.data[]? | {slug, name, source}]' > "$W/repositories.json"
 # SQLite databases that must be copied consistently (ZHA keeps its network in zigbee.db)
 for db in zigbee.db; do
   [ -f "/homeassistant/$db" ] && sqlite3 "/homeassistant/$db" ".backup '$W/db/$db'"
@@ -69,4 +71,4 @@ tar -C / -czf "$W/config.tgz" \
   homeassistant || rc=$?
 [ "$rc" -le 1 ] || exit "$rc"   # 1 = file changed while reading, acceptable
 date -u +%FT%TZ > "$W/created_utc"
-tar -C "$W" -cf - ./created_utc ./core.json ./addons ./db ./config.tgz
+tar -C "$W" -cf - ./created_utc ./core.json ./repositories.json ./addons ./db ./config.tgz

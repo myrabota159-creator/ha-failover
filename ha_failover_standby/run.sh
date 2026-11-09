@@ -54,6 +54,7 @@ while true; do
     log "command received: ${line%% *}"
     case "$line" in
       snmp-*|port-*|pi-port-*) /snmp.sh $line 2>&1 | while IFS= read -r l; do log "[snmp] $l"; done ;;
+      setup*|preflight|drill) /setup.sh $line 2>&1 | while IFS= read -r l; do log "[setup] $l"; done ;;
       return-to-pi*) /return.sh $line 2>&1 | while IFS= read -r l; do log "[return] $l"; done ;;
       notify-test) /notify.sh "$(msg test_title)" "$(msg test_body)" 30 2>&1 | while IFS= read -r l; do log "[notify] $l"; done ;;
       *) /failover.sh $line 2>&1 | while IFS= read -r l; do log "[failover] $l"; done ;;

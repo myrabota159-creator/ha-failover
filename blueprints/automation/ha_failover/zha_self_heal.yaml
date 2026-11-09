@@ -1,0 +1,99 @@
+blueprint:
+  name: ZHA self-healing reload
+  description: >-
+    Reloads the ZHA integration when it stays in an error or retry state (for example a network coordinator
+    was unreachable at start and ZHA gave up), retries a limited number of times and notifies.
+    A ZHA integration that was disabled on purpose is left alone.
+  domain: automation
+  source_url: https://github.com/myrabota159-creator/ha-failover/blob/main/blueprints/automation/ha_failover/zha_self_heal.yaml
+  input:
+    zha_entry:
+      name: ZHA integration
+      selector:
+        config_entry:
+          integration: zha
+    down_minutes:
+      name: Not loaded for (minutes)
+      default: 3
+      selector:
+        number: {min: 1, max: 30, unit_of_measurement: min}
+    retry_minutes:
+      name: Wait after each reload (minutes)
+      default: 5
+      selector:
+        number: {min: 1, max: 30, unit_of_measurement: min}
+    max_attempts:
+      name: Maximum reloads
+      default: 12
+      selector:
+        number: {min: 1, max: 50}
+    notify_targets:
+      name: Notify services
+      description: Notify services without "notify.", one per line. Empty = persistent notification only.
+      default: ""
+      selector:
+        text:
+          multiline: true
+
+mode: single
+max_exceeded: silent
+
+variables:
+  entry: !input zha_entry
+  retry_minutes: !input retry_minutes
+  max_attempts: !input max_attempts
+  targets_raw: !input notify_targets
+  targets: "{{ targets_raw.split('\n') | map('trim') | reject('eq', '') | list }}"
+
+trigger_variables:
+  entry: !input zha_entry
+
+triggers:
+  # now() makes the template re-render every minute: a config entry state is not an entity state.
+  # "not_loaded" is left out on purpose: that is also the state of a disabled entry.
+  - trigger: template
+    value_template: >-
+      {% set _ = now().minute %}
+      {% set s = config_entry_attr(entry, 'state') | string | lower | replace('configentrystate.', '') %}
+      {{ s in ['setup_error', 'setup_retry', 'migration_error', 'failed_unload'] }}
+    for:
+      minutes: !input down_minutes
+
+actions:
+  - repeat:
+      sequence:
+        - action: homeassistant.reload_config_entry
+          data:
+            entry_id: "{{ entry }}"
+          continue_on_error: true
+        - wait_template: "{{ (config_entry_attr(entry, 'state') | string | lower | replace('configentrystate.', '')) == 'loaded' }}"
+          timeout:
+            minutes: "{{ retry_minutes }}"
+          continue_on_timeout: true
+        - variables:
+            ok: "{{ (config_entry_attr(entry, 'state') | string | lower | replace('configentrystate.', '')) == 'loaded' }}"
+        - variables:
+            text: >-
+              {% if ok %}ZHA reloaded and loaded again (attempt {{ repeat.index }}).
+              {% elif repeat.index >= max_attempts %}ZHA still not loaded after {{ repeat.index }} reloads, giving up.
+              {% else %}ZHA still not loaded after reload {{ repeat.index }}, trying again.{% endif %}
+        - if:
+            - condition: template
+              value_template: "{{ ok or repeat.index == 1 or repeat.index >= max_attempts }}"
+          then:
+            - action: persistent_notification.create
+              data:
+                title: ZHA
+                message: "{{ text }}"
+                notification_id: zha_self_heal
+            - repeat:
+                for_each: "{{ targets }}"
+                sequence:
+                  - action: "notify.{{ repeat.item }}"
+                    data:
+                      title: ZHA
+                      message: "{{ text }}"
+                    continue_on_error: true
+      until:
+        - condition: template
+          value_template: "{{ (config_entry_attr(entry, 'state') | string | lower | replace('configentrystate.', '')) == 'loaded' or repeat.index >= max_attempts }}"
