@@ -15,7 +15,7 @@
 | **HA Failover Primary** | основной HA | отдаёт резерву снимки конфигурации, состояние здоровья, отправляет уведомления |
 | **HA Failover Standby** | резервный HA | копирование, сторож, переключение, возврат, уведомления, проверка готовности и учения |
 
-Настройка сети, гипервизора и установка по шагам: [руководство](docs/guide.ru.md).
+Настройка сети, гипервизора и установка по шагам: [руководство](docs/guide.ru.md). Готовые примеры (переключатель режима сторожа): [examples](examples).
 
 ### Требования
 
@@ -38,7 +38,7 @@ Hot standby for Home Assistant OS: a second HA (a virtual machine or another sin
 | **HA Failover Primary** | primary HA | serves configuration snapshots and health to the standby, sends notifications |
 | **HA Failover Standby** | standby HA | replication, watchdog, failover, return, notifications, preflight check and drills |
 
-Network, hypervisor and step-by-step installation: [guide](docs/guide.en.md).
+Network, hypervisor and step-by-step installation: [guide](docs/guide.en.md). Ready-made examples (watchdog mode switch): [examples](examples).
 
 ### Requirements
 

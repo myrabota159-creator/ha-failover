@@ -1,0 +1,46 @@
+# HA Failover: dashboard for the watchdog mode switch (YAML-mode dashboard on the standby).
+# Save as /homeassistant/dashboards/ha_failover.yaml and register it in configuration.yaml:
+#   lovelace:
+#     dashboards:
+#       ha-failover:
+#         mode: yaml
+#         filename: dashboards/ha_failover.yaml
+#         title: HA Failover
+#         icon: mdi:shield-sync
+#         show_in_sidebar: true
+# Or paste the two cards below into any existing dashboard (Edit > Raw configuration editor).
+title: HA Failover
+views:
+  - title: Watchdog
+    path: watchdog
+    icon: mdi:shield-sync
+    cards:
+      - type: entities
+        title: Standby watchdog
+        entities:
+          - entity: input_select.failover_watchdog_mode
+          - entity: sensor.failover_watchdog
+            name: Effective mode
+          - type: attribute
+            entity: sensor.failover_watchdog
+            attribute: state
+            name: State
+          - type: attribute
+            entity: sensor.failover_watchdog
+            attribute: detail
+            name: Detail
+          - type: attribute
+            entity: sensor.failover_watchdog
+            attribute: pi_silent_seconds
+            name: Primary silent
+            suffix: s
+          - type: attribute
+            entity: sensor.failover_watchdog
+            attribute: checked_utc
+            name: Checked (UTC)
+      - type: markdown
+        content: >-
+          **off**: watchdog disabled; **observe**: log only (`OBSERVE` lines);
+          **armed**: disables the primary's switch port and fails over when the primary is gone.
+          A choice takes effect within ~10 s, no add-on restart. It overrides the add-on option
+          `watchdog_mode` until `set-mode default` is sent.

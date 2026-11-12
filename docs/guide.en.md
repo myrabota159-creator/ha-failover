@@ -77,9 +77,9 @@
 Commands for the standby are sent in Developer tools > Actions:
 
 ```yaml
-action: hassio.app_stdin        # hassio.addon_stdin on older versions
+action: hassio.app_stdin        # hassio.addon_stdin with field addon instead of app on older versions
 data:
-  addon: <repository hash>_ha_failover_standby
+  app: <repository hash>_ha_failover_standby
   input: preflight
 ```
 
@@ -106,20 +106,24 @@ every one of them has a `-dry` variant or is preceded by a read-only check.
 8. Set `watchdog_mode: observe` for a few days and read the log: lines `OBSERVE:` show when an armed watchdog
    would have acted. Then set `watchdog_mode: armed`. Arm `ha_check_mode` separately, only if you want a
    failover when the node answers but HA does not.
+   The mode can also be changed without a restart: command `set-mode off|observe|armed`. The choice is kept
+   in `/share/ha_failover/watchdog_mode` and overrides the `watchdog_mode` option until `set-mode default`
+   is sent. A ready-made switch for the standby's HA: [examples/watchdog_mode_switch](../examples/watchdog_mode_switch).
 9. Import the blueprints from `blueprints/` on the primary (they reach the standby with the snapshot).
 
 ## 6. Operation
 
 | Situation | What to do |
 |---|---|
-| Planned work on the primary | `watchdog_mode: observe` on the standby first, back to `armed` afterwards. |
+| Planned work on the primary | `set-mode observe` on the standby first (or the switch from the example), back to `set-mode armed` afterwards. |
 | Manual failover | Switch the primary off, then `dry-run`, `failover I-UNDERSTAND`. The failover disables the primary port and confirms it first; without a configured switch it warns and leaves the port alone, then keep the primary off. |
 | Back to the primary | Power the primary on (its port is still disabled), then `return-to-pi-dry`, `return-to-pi I-UNDERSTAND`. On success: push from the primary, replication resumes. |
 | Return failed | The standby is primary again with its own latest state; check the primary, try again later. |
 | Manual undo | `standby I-UNDERSTAND`, then `pi-port-up I-UNDERSTAND`, check the primary, `unblock I-UNDERSTAND`. |
 
-State files on the standby: `/share/ha_failover/status.json` (replication), `watchdog.json`, `preflight.json`,
-`notify.log`.
+State files on the standby: `/share/ha_failover/status.json` (replication), `watchdog.json` (effective watchdog
+mode and state), `watchdog_mode` (mode chosen with `set-mode`), `preflight.json`, `notify.log`.
+During the first 300 s after the add-on starts the watchdog evaluates nothing and does not refresh `watchdog.json`.
 
 ## 7. Troubleshooting
 

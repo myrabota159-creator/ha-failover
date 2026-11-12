@@ -1,0 +1,82 @@
+# HA Failover: watchdog mode switch for the STANDBY's own Home Assistant (normal mode, standby address).
+# A dropdown that changes the watchdog mode live (command "set-mode", no add-on restart), plus a sensor
+# that shows the effective mode and state from /share/ha_failover/watchdog.json.
+#
+# Install: save as /homeassistant/packages/ha_failover_watchdog.yaml on the standby and enable packages in
+# configuration.yaml:
+#   homeassistant:
+#     packages: !include_dir_named packages
+# Then check the configuration and restart Home Assistant.
+#
+# The add-on slug is "<repository hash>_ha_failover_standby"; the hash comes from the repository URL,
+# for https://github.com/myrabota159-creator/ha-failover it is 11f0ca86. Check yours in the add-on URL.
+
+input_select:
+  failover_watchdog_mode:
+    name: Watchdog mode
+    icon: mdi:shield-sync
+    options:
+      - "off"       # quoted: bare off is a boolean in YAML
+      - "observe"
+      - "armed"
+
+command_line:
+  - sensor:
+      name: Failover watchdog
+      unique_id: failover_watchdog_state
+      icon: mdi:shield-check
+      command: "cat /share/ha_failover/watchdog.json"
+      value_template: "{{ value_json.mode }}"
+      json_attributes: [state, detail, pi_silent_seconds, checked_utc]
+      scan_interval: 30
+
+automation:
+  - id: failover_watchdog_set_mode
+    alias: Failover watchdog - apply mode
+    description: Sends "set-mode <choice>" to HA Failover Standby when the dropdown is changed by a person.
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: input_select.failover_watchdog_mode
+    conditions:
+      # Only real choices (not the first creation of the entity), and only changes made by a person or an
+      # API call. Changes made by the sync automation below have a parent context and are skipped, so the
+      # sync never sends a command back. Do NOT compare with the sensor instead: during the 300 s grace
+      # after an add-on start watchdog.json is not refreshed, the sensor is stale, and a real choice
+      # would be skipped.
+      - condition: template
+        value_template: >-
+          {{ trigger.from_state is not none
+             and trigger.from_state.state in ['off','observe','armed']
+             and trigger.to_state.state in ['off','observe','armed']
+             and trigger.to_state.context.parent_id is none }}
+    actions:
+      - action: hassio.app_stdin
+        data:
+          app: 11f0ca86_ha_failover_standby
+          input: "set-mode {{ trigger.to_state.state }}"
+      - delay: "00:00:15"
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.failover_watchdog
+
+  - id: failover_watchdog_sync_select
+    alias: Failover watchdog - show effective mode
+    description: Copies the effective mode from watchdog.json into the dropdown (after HA start and on change).
+    mode: queued
+    triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id: sensor.failover_watchdog
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ states('sensor.failover_watchdog') in ['off','observe','armed']
+             and states('sensor.failover_watchdog') != states('input_select.failover_watchdog_mode') }}
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.failover_watchdog_mode
+        data:
+          option: "{{ states('sensor.failover_watchdog') }}"
