@@ -34,7 +34,7 @@ Send with the action `hassio.addon_stdin` (`addon: <slug>`, `input: "<command>"`
 - `return-to-pi-dry`, `return-to-pi-health`, `return-to-pi I-UNDERSTAND`
 - `snmp-test`, `port-test I-UNDERSTAND`, `pi-port-up I-UNDERSTAND`
 - `notify-test`
-- `set-mode off|observe|armed` (or `set-mode default` to clear): change the watchdog mode live, without restarting the add-on. Writes `/share/ha_failover/watchdog_mode`; the effective mode is reflected in `watchdog.json`.
+- `set-mode off|observe|armed` (or `set-mode default` to clear): change the watchdog mode live, without restarting the add-on. Writes `/share/ha_failover/watchdog_mode`; the effective mode is reflected in `watchdog.json` (refreshed every 10 s, also during the start grace).
 - `setup-dry`, `setup I-UNDERSTAND`: add missing add-on repositories, install the managed add-ons, set them to `boot: manual` and stop them
 - `preflight`: read-only readiness check, result also in `/share/ha_failover/preflight.json`
 - `drill`: read-only restore drill of the latest snapshot in a scratch folder

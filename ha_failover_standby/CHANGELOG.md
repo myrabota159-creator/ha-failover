@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.1
+- `watchdog.json` is refreshed every 10 s during the 300 s grace after the add-on
+  starts (state `starting` with the remaining seconds, or `off`). Before, it kept
+  the value written at start, so a mode chosen with `set-mode` in that window was
+  not visible and a dashboard reading the file showed a stale mode. A mode change
+  during the grace is logged.
+
 ## 0.12.0
 - Live watchdog mode switching. The `set-mode off|observe|armed` stdin command
   (and `set-mode default` to clear) changes the watchdog mode **without

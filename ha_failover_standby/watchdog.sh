@@ -53,9 +53,16 @@ isolate_and_failover(){ # $1 = human reason (goes into the push); returns after 
 log "start: mode=$MODE, limit ${LIMIT}s; HA check $HA_MODE, limit ${HA_LIMIT}s; grace ${GRACE}s, primary $PI on switch $SW port $PIP"
 for v in PI SW U A X; do [ -n "${!v}" ] || { log "option for $v not set, watchdog idle"; state error "incomplete options" 0; exec sleep infinity; }; done
 [ "${PIP:-0}" != 0 ] || { log "primary_switch_port not set, watchdog idle"; state error "incomplete options" 0; exec sleep infinity; }
-MODE=$(current_mode)
-if [ "$MODE" = off ]; then state off "watchdog disabled" 0; else state starting "grace ${GRACE}s after start" 0; fi
-sleep "$GRACE"
+# Grace after start: nothing is evaluated, but watchdog.json is refreshed every STEP so that the effective
+# mode (incl. a set-mode issued now) and the remaining grace are visible right away.
+g0=$(date +%s); gprev=""
+while :; do
+  left=$(( GRACE - ($(date +%s) - g0) )); [ "$left" -gt 0 ] || break
+  MODE=$(current_mode)
+  [ -n "$gprev" ] && [ "$MODE" != "$gprev" ] && log "mode during grace: $MODE"; gprev=$MODE
+  if [ "$MODE" = off ]; then state off "watchdog disabled" 0; else state starting "grace after start, ${left}s left" 0; fi
+  sleep $(( left < STEP ? left : STEP ))
+done
 GW=$(gateway); log "gateway for own network check: ${GW:-none}, required hosts: ${REQUIRED[*]:-none}"
 silent=0; hadead=0; diag_at=-999; last=$(date +%s); prev=""
 while true; do
