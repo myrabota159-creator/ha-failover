@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.13.0
+- Hourly switch check. The watchdog reads the primary port over SNMPv3 once an
+  hour, in every state, and changes nothing. Before, the switch was only
+  contacted when the primary was already silent, so a switch that lost its
+  trusted hosts or SNMP user (for example after a reboot with unsaved settings)
+  went unnoticed until a real failover could not disable the primary port.
+- The result is in `watchdog.json`: `switch_ok` (`true` / `false`, `null`
+  before the first check), `switch_checked_utc`, `switch_detail`. If the gateway
+  is unreachable from the standby, the check is skipped and not counted as a
+  switch failure.
+- One push when the switch stops answering and one when it answers again.
+
 ## 0.12.1
 - `watchdog.json` is refreshed every 10 s during the 300 s grace after the add-on
   starts (state `starting` with the remaining seconds, or `off`). Before, it kept

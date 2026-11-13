@@ -40,3 +40,5 @@ Send with the action `hassio.addon_stdin` (`addon: <slug>`, `input: "<command>"`
 - `drill`: read-only restore drill of the latest snapshot in a scratch folder
 
 State files: `/share/ha_failover/status.json`, `/share/ha_failover/watchdog.json`, `/share/ha_failover/notify.log`.
+
+Once an hour the watchdog reads the primary port over SNMPv3 (read only) and stores the result in `watchdog.json` (`switch_ok`, `switch_checked_utc`, `switch_detail`). If the switch stops answering, a push is sent: without the switch the standby cannot disable the primary port and will not fail over.

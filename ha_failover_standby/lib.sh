@@ -88,6 +88,10 @@ msg(){
     reason_not_ready) t='проверки готовности на основном не прошли за %s мин' ;;
     guard_title) t='HA: порт основного снова выключен' ;;
     guard_body) t='%s Порт %s (основной) оказался включён, пока HA работает на резерве (перезагрузка коммутатора?). Сторож выключил его снова.' ;;
+    switch_fail_title) t='HA: коммутатор не отвечает резерву' ;;
+    switch_fail_body) t='%s Коммутатор %s не отвечает резерву по SNMPv3 (порт основного %s). Если основной откажет, резерв не сможет выключить его порт и переключения не будет. Проверьте Trusted Hosts и пользователя SNMP (коммутатор перезагружался?).' ;;
+    switch_ok_title) t='HA: коммутатор снова отвечает' ;;
+    switch_ok_body) t='%s Коммутатор %s снова отвечает резерву по SNMPv3.' ;;
     *) t=$k ;;
   esac; else case "$k" in
     test_title) t='HA: notification test' ;;
@@ -107,6 +111,10 @@ msg(){
     reason_not_ready) t='readiness checks on the primary did not pass within %s min' ;;
     guard_title) t='HA: primary port disabled again' ;;
     guard_body) t='%s Port %s (primary) was enabled while HA runs on the standby (switch reboot?). The watchdog disabled it again.' ;;
+    switch_fail_title) t='HA: switch does not answer the standby' ;;
+    switch_fail_body) t='%s Switch %s does not answer the standby over SNMPv3 (primary port %s). If the primary fails, the standby cannot disable its port and will not fail over. Check trusted hosts and the SNMP user (switch rebooted?).' ;;
+    switch_ok_title) t='HA: switch answers again' ;;
+    switch_ok_body) t='%s Switch %s answers the standby over SNMPv3 again.' ;;
     *) t=$k ;;
   esac; fi
   # shellcheck disable=SC2059

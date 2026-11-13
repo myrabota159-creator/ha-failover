@@ -7,6 +7,9 @@
 # Level 2: primary answers, but its HA does not serve /manifest.json (ha_fail_seconds, mode ha_check_mode).
 # Both levels act only if this node itself sees the gateway, the switch (SNMP) and every required_hosts entry,
 # and only after the primary port is confirmed down.
+# Switch check: once an hour (in every state) the primary port is read over SNMP, so a switch that lost its
+# trusted hosts or SNMP user (e.g. after a reboot) is noticed before a real failover needs it.
+# Read only; result in watchdog.json (switch_ok / switch_checked_utc / switch_detail), push on failure and recovery.
 set -uo pipefail
 . /lib.sh
 ST=$R/watchdog.json
@@ -16,6 +19,7 @@ MODE=$(current_mode); LIMIT=$(opt .watchdog_fail_seconds)
 HA_MODE=$(opt .ha_check_mode); HA_MODE=${HA_MODE:-observe}; HA_LIMIT=$(opt .ha_fail_seconds)
 mapfile -t REQUIRED < <(jq -r '.required_hosts[]?' "$O")   # "host" (ping) or "host:port" (ping or TCP)
 STEP=10; GRACE=300
+SW_EVERY=3600; SW_OK=null; SW_T=""; SW_D="not checked yet"; sw_at=0; sw_alerted=""
 log(){ echo "$*"; }
 ha_ok(){ [ "$(curl -s -o /dev/null -w '%{http_code}' -m 5 "http://$PI:$HA_PORT/manifest.json" 2>/dev/null)" = 200 ]; }
 pi_alive(){ local p; ping1 "$PI" && return 0; for p in $(pi_alive_ports); do tcp "$PI" "$p" && return 0; done; return 1; }
@@ -30,7 +34,27 @@ vm_net_ok(){ # prints the failing check, returns 1 if this node itself has a pro
   return 0
 }
 state(){ jq -n --arg m "$MODE" --arg s "$1" --arg d "$2" --argjson f "$3" --arg t "$(date -u +%FT%TZ)" \
-  '{mode:$m, state:$s, detail:$d, pi_silent_seconds:$f, checked_utc:$t}' > "$ST.tmp" && mv "$ST.tmp" "$ST"; }
+  --argjson so "$SW_OK" --arg st "$SW_T" --arg sd "$SW_D" \
+  '{mode:$m, state:$s, detail:$d, pi_silent_seconds:$f, checked_utc:$t,
+    switch_ok:$so, switch_checked_utc:(if $st == "" then null else $st end), switch_detail:$sd}' > "$ST.tmp" && mv "$ST.tmp" "$ST"; }
+switch_check(){ # read-only SNMP check of the path used to disable the primary port; pushes once on failure, once on recovery
+  local a="" o i first=""
+  [ "$SW_OK" = null ] && first=1
+  for i in 1 2; do a=$(port_admin "$PIP"); [ -n "$a" ] && break; [ "$i" = 1 ] && sleep 5; done
+  if [ -n "$a" ]; then
+    o=$(port_oper "$PIP"); SW_OK=true; SW_T=$(date -u +%FT%TZ); SW_D="port $PIP admin=$a oper=${o:-?}"
+    [ -n "$first" ] && log "switch check: SNMP answers ($SW_D), next check in $((SW_EVERY/60)) min"
+    if [ -n "$sw_alerted" ]; then sw_alerted=""; log "switch check: SNMP answers again ($SW_D)"
+      notify_bg "$(msg switch_ok_title)" "$(msg switch_ok_body "$(local_time)" "$SW")" 900; fi
+  elif [ -n "$GW" ] && ! ping1 "$GW"; then
+    SW_D="not checked: gateway $GW unreachable from this node"; log "switch check skipped: $SW_D"
+  else
+    SW_OK=false; SW_T=$(date -u +%FT%TZ); SW_D="switch $SW does not answer SNMPv3 (port $PIP)"
+    if [ -z "$sw_alerted" ]; then sw_alerted=1
+      log "switch check FAILED: $SW_D; trusted hosts or SNMP user lost (switch reboot?)"
+      notify_bg "$(msg switch_fail_title)" "$(msg switch_fail_body "$(local_time)" "$SW" "$PIP")" 900; fi
+  fi
+}
 
 isolate_and_failover(){ # $1 = human reason (goes into the push); returns after failover or refusal
   log "$1: disabling switch port $PIP"
@@ -71,6 +95,7 @@ while true; do
     log "clock jump or stall (${gap}s between checks), counters reset"; silent=0; hadead=0
   fi
   MODE=$(current_mode)
+  if [ $((now - sw_at)) -ge "$SW_EVERY" ]; then switch_check; sw_at=$(date +%s); fi
   if [ -e "$R/BLOCKED" ]; then cur="blocked"; silent=0; hadead=0; state blocked "BLOCKED present, watchdog idle" 0
     # While this node holds the primary address, keep the primary port disabled
     # (a switch reboot re-enables it: an SNMP set is usually not saved to the startup config).

@@ -123,7 +123,10 @@ every one of them has a `-dry` variant or is preceded by a read-only check.
 
 State files on the standby: `/share/ha_failover/status.json` (replication), `watchdog.json` (effective watchdog
 mode and state), `watchdog_mode` (mode chosen with `set-mode`), `preflight.json`, `notify.log`.
-During the first 300 s after the add-on starts the watchdog evaluates nothing and does not refresh `watchdog.json`.
+During the first 300 s after the add-on starts the watchdog evaluates nothing; `watchdog.json` shows the state `starting`.
+Once an hour the watchdog reads the primary port over SNMPv3 (read only): `switch_ok`, `switch_checked_utc` and
+`switch_detail` in `watchdog.json`, and a push when the switch stops answering (for example after a switch reboot
+that lost trusted hosts or the SNMP user) and when it answers again.
 
 ## 7. Troubleshooting
 
